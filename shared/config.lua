@@ -1,11 +1,11 @@
 local Config = {}
 
 -- Core Settings
-Config.debug = false
+Config.debug = false  
 Config.notifications = true
 
 -- Police System
-Config.policeRequired = true
+Config.policeRequired = true  
 Config.policeJobType = 'leo'
 Config.DynamicPolice = {
     enabled = true,
@@ -26,14 +26,14 @@ Config.dispatchJobs = {'lspd', 'sasp', 'bcso', 'usms'}
 -- Global Requirements
 Config.RequiredItem = 'lockpick'
 
--- Package System
+-- Package System 
 Config.packageSettings = {
-    percent = 5,
+    percent = 5,  
     stealTime = 7500,
     interactionDistance = 2.5,
-    timeRestricted = true,
-    allowedStartTime = 21,
-    allowedEndTime = 5,
+    timeRestricted = true,  
+    allowedStartTime = 21,  -- 9 PM
+    allowedEndTime = 5,     -- 5 AM
     witnessSystem = true,
     witnessDistance = 35.0,
     witnessCallChance = 4
@@ -196,7 +196,7 @@ Config.chopshop = {
                 rewards = { rubber = 90, aluminum = 70, steel = 50 },
                 quantities = { rubber = {min = 3, max = 6}, aluminum = {min = 1, max = 3}, steel = {min = 1, max = 2} }},
         [9] = { label = "Right Rear Wheel", bone = "wheel_rr",
-                rewards = { rubber = 90, aluminum = 70, steel = 50 },
+                rewards = { rubber = 90, aluminum = 70, steel =50 },
                 quantities = { rubber = {min = 3, max = 6}, aluminum = {min = 1, max = 3}, steel = {min = 1, max = 2} }},
         [10] = { label = "Front Bumper", bone = "bumper_f",
                  rewards = { aluminum = 80, plastic = 90, steel = 40 },

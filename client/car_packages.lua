@@ -12,6 +12,9 @@ local seatMappings = {
     names = { ['seat_pside_f'] = 'front passenger', ['seat_dside_r'] = 'rear driver', ['seat_pside_r'] = 'rear passenger' }
 }
 
+-- DEBUG: Add visual markers for packages
+local debugMarkers = {}
+
 local function getSafeMapping(seatName, mappingType, fallback)
     return seatMappings[mappingType][seatName] or fallback
 end
@@ -244,6 +247,11 @@ local PackageManager = {
             objects[packageEntity] = nil
         end
         
+        -- DEBUG: Remove debug marker
+        if debugMarkers[vehicle] then
+            debugMarkers[vehicle] = nil
+        end
+        
         packageVehicles[vehicle] = nil
         trackedVehicles[vehicle] = nil
     end,
@@ -270,6 +278,15 @@ local PackageManager = {
         )
         
         objects[package] = true
+        
+        -- DEBUG: Add visual marker for package
+        print("DEBUG CLIENT: Package created on vehicle", vehicle, "with entity", package)
+        debugMarkers[vehicle] = {
+            vehicle = vehicle,
+            package = package,
+            coords = coords
+        }
+        
         return package
     end
 }
@@ -303,6 +320,8 @@ AddStateBagChangeHandler('loadPackage', nil, function(bagName, key, value, reser
     end, 'Failed to get vehicle from statebag', 5000)
     
     if not vehicle then return end
+    
+    print("DEBUG CLIENT: StateBag loadPackage changed for vehicle", vehicle, "value:", value and "PACKAGE DATA" or "NIL")
     
     if not value then
         if packageVehicles[vehicle] then
@@ -359,6 +378,78 @@ AddStateBagChangeHandler('hasPackage', nil, function(bagName, key, value, reserv
     end
 end)
 
+-- DEBUG: Visual markers thread
+CreateThread(function()
+    while true do
+        Wait(0)
+        
+        local playerCoords = GetEntityCoords(cache.ped)
+        
+        for vehicle, markerData in pairs(debugMarkers) do
+            if DoesEntityExist(vehicle) and DoesEntityExist(markerData.package) then
+                local vehCoords = GetEntityCoords(vehicle)
+                local distance = #(playerCoords - vehCoords)
+                
+                if distance <= 100.0 then
+                    -- Draw marker above vehicle
+                    DrawMarker(
+                        1, -- Type (cylinder)
+                        vehCoords.x, vehCoords.y, vehCoords.z + 2.0, -- Position
+                        0.0, 0.0, 0.0, -- Direction
+                        0.0, 0.0, 0.0, -- Rotation
+                        1.0, 1.0, 1.0, -- Scale
+                        255, 0, 0, 200, -- Color (red, semi-transparent)
+                        false, true, 2, -- Bob, face camera, rotate
+                        false, false, false -- Texture stuff
+                    )
+                    
+                    -- Draw text
+                    if distance <= 25.0 then
+                        local onScreen, screenX, screenY = GetScreenCoordFromWorldCoord(vehCoords.x, vehCoords.y, vehCoords.z + 1.5)
+                        if onScreen then
+                            SetTextScale(0.35, 0.35)
+                            SetTextFont(4)
+                            SetTextColour(255, 255, 255, 255)
+                            SetTextCentre(true)
+                            SetTextOutline()
+                            DisplayText(screenX, screenY, "PACKAGE HERE")
+                        end
+                    end
+                end
+            else
+                debugMarkers[vehicle] = nil
+            end
+        end
+    end
+end)
+
+-- DEBUG: Command to list all package vehicles
+RegisterCommand('listpackages', function()
+    print("=== PACKAGE VEHICLES DEBUG ===")
+    local count = 0
+    for vehicle, data in pairs(packageVehicles) do
+        count = count + 1
+        local coords = GetEntityCoords(vehicle)
+        local model = GetDisplayNameFromVehicleModel(GetEntityModel(vehicle))
+        print(string.format("Vehicle %d: %s at %.1f, %.1f, %.1f", vehicle, model, coords.x, coords.y, coords.z))
+    end
+    print(string.format("Total packages found: %d", count))
+    
+    if count > 0 then
+        lib.notify({
+            title = 'Package Debug',
+            description = string.format('Found %d vehicles with packages. Check red markers!', count),
+            type = 'success'
+        })
+    else
+        lib.notify({
+            title = 'Package Debug',
+            description = 'No package vehicles found nearby',
+            type = 'error'
+        })
+    end
+end)
+
 CreateThread(function()
     while true do
         Wait(5000)
@@ -400,4 +491,5 @@ AddEventHandler('onResourceStop', function(resourceName)
     objects = {}
     packageVehicles = {}
     trackedVehicles = {}
+    debugMarkers = {}
 end)

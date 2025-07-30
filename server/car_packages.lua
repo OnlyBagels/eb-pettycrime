@@ -4,6 +4,13 @@ local vehiclePackages = {}
 local playerActionCooldowns = {}
 local validPassengerSeats = { 'seat_pside_f', 'seat_dside_r', 'seat_pside_r' }
 
+-- Helper function to get table size
+local function tableSize(t)
+    local count = 0
+    for _ in pairs(t) do count = count + 1 end
+    return count
+end
+
 local SecurityManager = {
     canPlayerPerformAction = function(source, action, cooldownMs)
         local key = source .. '_' .. action
@@ -258,45 +265,139 @@ lib.callback.register('eb-pettycrime-package:client:ValidateVehicle', function(s
 end)
 
 AddEventHandler('entityCreated', function(handle)
-    if not handle or not DoesEntityExist(handle) then return end
+    if Config.debug then
+        print("DEBUG: Entity created, handle:", handle)
+    end
+    
+    if not handle or not DoesEntityExist(handle) then 
+        if Config.debug then
+            print("DEBUG: Invalid handle or entity doesn't exist")
+        end
+        return 
+    end
     
     local popType = GetEntityPopulationType(handle)
     local entityType = GetEntityType(handle)
     local vehicleType = GetVehicleType(handle)
     
-    if popType ~= 2 or entityType ~= 2 or vehicleType ~= 'automobile' then return end
+    if Config.debug then
+        print(string.format("DEBUG: PopType: %s, EntityType: %s, VehicleType: %s", popType, entityType, vehicleType))
+    end
     
-    if VehicleManager.hasDriver(handle) or VehicleManager.hasPassengers(handle) then return end
+    if popType ~= 2 or entityType ~= 2 or vehicleType ~= 'automobile' then 
+        if Config.debug then
+            print("DEBUG: Failed vehicle type check")
+        end
+        return 
+    end
+    
+    if Config.debug then
+        print("DEBUG: Vehicle type check passed")
+    end
+    
+    if VehicleManager.hasDriver(handle) or VehicleManager.hasPassengers(handle) then 
+        if Config.debug then
+            print("DEBUG: Vehicle has occupants, skipping")
+        end
+        return 
+    end
+    
+    if Config.debug then
+        print("DEBUG: No occupants, continuing...")
+    end
     
     local model = GetEntityModel(handle)
-    if Config.blacklistedModels?[model] then return end
+    if Config.blacklistedModels?[model] then 
+        if Config.debug then
+            print("DEBUG: Vehicle model is blacklisted:", model)
+        end
+        return 
+    end
+    
+    if Config.debug then
+        print("DEBUG: Model check passed:", model)
+    end
     
     local randomRoll = math.random(1, Config.packageSettings.percent or 100)
-    if randomRoll ~= 1 then return end
+    if Config.debug then
+        print("DEBUG: Random roll:", randomRoll, "needed: 1")
+    end
+    if randomRoll ~= 1 then 
+        if Config.debug then
+            print("DEBUG: Failed random roll")
+        end
+        return 
+    end
     
-    if not PackageSystem.isWithinAllowedTime() then return end
+    if Config.debug then
+        print("DEBUG: Random roll passed!")
+    end
+    
+    if not PackageSystem.isWithinAllowedTime() then 
+        if Config.debug then
+            print("DEBUG: Outside allowed time")
+        end
+        return 
+    end
+    
+    if Config.debug then
+        print("DEBUG: Time check passed")
+    end
     
     if Config.policeRequired then
         local hasEnoughPolice = exports['eb-pettycrime']:CheckPoliceRequirement()
-        if not hasEnoughPolice then return end
+        if not hasEnoughPolice then 
+            if Config.debug then
+                print("DEBUG: Not enough police")
+            end
+            return 
+        end
+    end
+    
+    if Config.debug then
+        print("DEBUG: Police check passed")
     end
     
     local vehicleKey = tostring(handle)
-    if vehiclePackages[vehicleKey] then return end
+    if vehiclePackages[vehicleKey] then 
+        if Config.debug then
+            print("DEBUG: Vehicle already has package")
+        end
+        return 
+    end
     
     local hasPackage = false
     local success = pcall(function()
         hasPackage = Entity(handle).state.hasPackage
     end)
     
-    if not success or hasPackage then return end
+    if not success or hasPackage then 
+        if Config.debug then
+            print("DEBUG: Entity state check failed or already has package")
+        end
+        return 
+    end
     
-    if not DoesEntityExist(handle) then return end
+    if not DoesEntityExist(handle) then 
+        if Config.debug then
+            print("DEBUG: Entity no longer exists")
+        end
+        return 
+    end
+    
+    if Config.debug then
+        print("DEBUG: Attempting to create package...")
+    end
     
     local netId = NetworkGetNetworkIdFromEntity(handle)
     local owner = NetworkGetEntityOwner(handle)
     
-    if not DoesEntityExist(handle) then return end
+    if not DoesEntityExist(handle) then 
+        if Config.debug then
+            print("DEBUG: Entity disappeared during network operations")
+        end
+        return 
+    end
     
     local validationSuccess, boneID, seatName = lib.callback.await(
         'eb-pettycrime-package:client:ValidateVehicle',
@@ -304,8 +405,19 @@ AddEventHandler('entityCreated', function(handle)
         netId
     )
     
-    if not validationSuccess or not boneID or not seatName then return end
-    if not DoesEntityExist(handle) then return end
+    if not validationSuccess or not boneID or not seatName then 
+        if Config.debug then
+            print("DEBUG: Validation failed - boneID:", boneID, "seatName:", seatName)
+        end
+        return 
+    end
+    
+    if not DoesEntityExist(handle) then 
+        if Config.debug then
+            print("DEBUG: Entity disappeared during validation")
+        end
+        return 
+    end
     
     local selectedProp, propData = PackageSystem.getRandomPackageProp()
     
@@ -322,8 +434,14 @@ AddEventHandler('entityCreated', function(handle)
     if DoesEntityExist(handle) then
         Entity(handle).state:set('loadPackage', data, true)
         Entity(handle).state:set('hasPackage', true, true)
+        if Config.debug then
+            print("DEBUG: Package created successfully!")
+        end
     else
         vehiclePackages[vehicleKey] = nil
+        if Config.debug then
+            print("DEBUG: Entity disappeared, cleaning up")
+        end
     end
 end)
 
@@ -396,7 +514,7 @@ lib.addCommand('packagestats', {
         multiline = true,
         args = {"System", ("Active packages: %d | Police: %d/%d | Time: %02d:00 (%s)%s | Tracked: %d"):format(
             activePackages, onlinePolice, requiredPolice, currentHour, timeStatus, timeRange,
-            lib.table.tablesize(vehiclePackages)
+            tableSize(vehiclePackages)
         )}
     })
 end)
